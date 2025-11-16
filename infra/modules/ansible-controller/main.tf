@@ -140,6 +140,7 @@ resource "aws_instance" "ansible_controller" {
   instance_type = var.instance_type
   key_name      = aws_key_pair.ansible_controller_key_pair.key_name
   iam_instance_profile = aws_iam_instance_profile.ansible_controller_instance_profile.name
+  user_data = file("${path.module}/user-data.sh")
 
   subnet_id              = aws_subnet.ansible_controller_subnet.id
   vpc_security_group_ids = [aws_security_group.ansible_controller_sg.id]
