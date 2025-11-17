@@ -150,3 +150,12 @@ Agora que sua instância funciona via SSH, podemos avançar para a **Etapa 3** q
 
 ---
 
+
+---
+
+# 7. Adição do Ansible na EC2
+
+O Ansible foi adicionado via paramaetro user-data.
+
+
+
