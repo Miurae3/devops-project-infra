@@ -21,6 +21,12 @@ variable "instance_type_master" {
     type        = string
     default     = "t3.medium"
 }
+variable "instance_type_worker" {
+    description = "The instance type for the Ansible controller instance."
+    type        = string
+    default     = "t3.micro"
+}
+
 
 variable "instance_name" {
     description = "The name tag for the Ansible controller instance."

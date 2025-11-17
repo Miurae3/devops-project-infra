@@ -1,161 +1,220 @@
-16/11/25
+📘 README — Infraestrutura mínima para acesso SSH em EC2 + Preparação do Ambiente Kubernetes (Etapa 6)
+📅 Atualizações
 
-# README — Estrutura mínima para subir uma EC2 com SSH funcional
+16/11/25 — Infraestrutura AWS para SSH funcional
 
-Este documento descreve **tudo o que é necessário** para criar uma instância EC2 com acesso SSH funcional usando Terraform. Também explica **por que sua primeira configuração não funcionou** e como os recursos de rede (VPC, subnets, IGW e Security Groups) se relacionam.
+17/11/25 — Etapa 6: Repositório Kubernetes + Containerd
 
----
+1. 📡 Infraestrutura mínima para acessar uma EC2 via SSH
 
-# 1. O que é necessário para acessar uma EC2 via SSH
+Este documento descreve todos os recursos necessários para criar uma instância EC2 acessível por SSH usando Terraform.
+Também explica por que a primeira versão não funcionava e como os elementos de rede da AWS se conectam.
 
-Para que qualquer instância EC2 seja acessível por SSH **a partir da internet**, quatro componentes são obrigatórios:
+Para que uma EC2 seja acessível pela internet via SSH, são obrigatórios cinco componentes de rede:
 
-## ✔ 1. VPC
+✔ 1. VPC
 
-Rede virtual onde todos os recursos AWS são criados.
+A VPC é a rede privada onde todos os recursos são criados.
 
-## ✔ 2. Subnet pública
+✔ 2. Subnet pública
 
-Uma subnet só é "pública" quando possui **rota para um Internet Gateway**. Sem isso, mesmo que a EC2 tenha IP público, ela não recebe tráfego externo.
+Uma subnet só é considerada pública quando possui rota para um Internet Gateway.
+Sem isso, mesmo que a EC2 tenha IP público, ela permanece isolada.
 
-## ✔ 3. Internet Gateway (IGW)
+✔ 3. Internet Gateway (IGW)
 
-O IGW permite que tráfego público (internet) entre e saia da VPC.
-Sem IGW → **nenhum tráfego chega**, mesmo com IP público → SSH falha.
+Responsável por permitir tráfego de/para a internet.
+Sem IGW → nenhum pacote chega na EC2 → SSH falha.
 
-## ✔ 4. Route Table associada à Subnet
+✔ 4. Route Table
 
-Deve conter:
+A subnet pública precisa de uma rota padrão:
 
-```
 0.0.0.0/0 → igw-xxxxx
-```
 
-Sem essa rota, a subnet não é pública e o SSH não funciona.
 
-## ✔ 5. Security Group
+Sem essa rota, a EC2 não será acessível externamente.
 
-O SG deve liberar porta **22/tcp** para o seu IP público.
+✔ 5. Security Group
 
-Exemplo:
+O Security Group deve liberar a porta 22/tcp:
 
-```
 22/tcp → seu_IP/32
-```
 
-Se liberar 0.0.0.0/0 funciona também, mas é inseguro.
 
----
+0.0.0.0/0 funciona, mas é inseguro.
 
-# 2. Por que sua primeira configuração *não funcionava*
+2. ❌ Por que sua primeira configuração não funcionava
 
-Os problemas mais comuns foram exatamente estes:
+Sua primeira tentativa criava apenas o Security Group, mas não:
 
-### **❌ Você criou apenas o Security Group, mas não toda a infraestrutura de rede necessária.**
+VPC
 
-Sem VPC + Subnet pública + IGW + Rota pública, a EC2 fica isolada.
+Subnet pública
+
+Internet Gateway
+
+Route Table com rota para o IGW
+
+Associação da Route Table com a Subnet
 
 Mesmo com:
 
-* IP público
-* Porta 22 liberada
+IP público
 
-Ainda assim o SSH não chega porque:
+Porta 22 liberada
 
-* Não havia rota 0.0.0.0/0 → IGW
-* Subnet não era pública
+A EC2 continuava inacessível porque:
 
-### Por isso, com o código corrigido começou a funcionar.
+A subnet não tinha rota para internet
 
-A correção criou:
+Não havia IGW associado
 
-* VPC
-* Subnet pública
-* IGW
-* Route Table → IGW
-* Associação da Route Table com a Subnet
-* Security Group com entrada em 22/tcp
+A EC2 estava isolada dentro da VPC
 
-Com isso, o caminho ficou assim:
+✔ Após a correção, estes recursos foram criados:
 
-```
-internet → IGW → route table → subnet → instancia EC2
-```
+VPC
 
-E o SSH finalmente funcionou.
+Subnet pública
 
----
+Internet Gateway
 
-# 3. Fluxo correto do tráfego SSH
+Route Table com rota para o IGW
 
-```
+Associação entre Subnet e Route Table
+
+Security Group com porta 22 liberada
+
+EC2 conectada corretamente
+
+Caminho final do tráfego SSH:
+
+internet → IGW → Route Table → Subnet pública → EC2 (porta 22 liberada)
+
+3. 🔁 Fluxo do tráfego SSH
 (SEU PC)
-   ↓  porta 22
+   ↓ (22/tcp)
 internet
    ↓
-Internet Gateway (IGW)
+Internet Gateway
    ↓
-Route Table com rota 0.0.0.0/0 → IGW
+Route Table (0.0.0.0/0 → IGW)
    ↓
 Subnet pública
    ↓
-EC2 (com Security Group liberando 22)
-```
-
-Se **qualquer peça** estiver faltando, o SSH falha.
-
----
-
-# 4. Visão geral da infraestrutura criada
-
-### **Recursos essenciais:**
-
-* `aws_vpc`
-* `aws_subnet`
-* `aws_internet_gateway`
-* `aws_route_table`
-* `aws_route_table_association`
-* `aws_security_group`
-* `aws_instance`
-
-### **Ordem lógica de construção:**
-
-1. Criar VPC
-2. Criar Subnet
-3. Criar IGW
-4. Route Table apontando para IGW
-5. Associar Route Table à Subnet
-6. Criar Security Group permitindo SSH
-7. Criar EC2 conectada à Subnet + SG
-
----
-
-# 5. Erros comuns que impedem SSH
-
-| Problema                    | Consequência               |
-| --------------------------- | -------------------------- |
-| Subnet sem rota para o IGW  | Instância fica inacessível |
-| IGW não anexado             | Nada entra ou sai da VPC   |
-| SG sem porta 22             | SSH negado                 |
-| Usar o IP errado no SG      | Acesso bloqueado           |
-| Criar EC2 em subnet privada | Sem acesso externo         |
-
----
-
-# 6. Conclusão
-
-Para rodar uma EC2 com SSH funcional, é essencial **montar corretamente toda a infraestrutura de rede**, não apenas liberar porta no Security Group.
-
-Agora que sua instância funciona via SSH, podemos avançar para a **Etapa 3** quando você quiser.
-
----
+EC2 (SG permitindo SSH)
 
 
----
+Se qualquer parte estiver faltando → SSH não funciona.
 
-# 7. Adição do Ansible na EC2
+4. 🧱 Infraestrutura criada
+Recursos essenciais
 
-O Ansible foi adicionado via paramaetro user-data.
+aws_vpc
+
+aws_subnet
+
+aws_internet_gateway
+
+aws_route_table
+
+aws_route_table_association
+
+aws_security_group
+
+aws_instance
+
+Ordem lógica
+
+Criar VPC
+
+Criar Subnet
+
+Criar Internet Gateway
+
+Criar Route Table
+
+Associar Route Table à Subnet
+
+Criar Security Group
+
+Criar EC2
+
+5. ⚠ Erros comuns que impedem SSH
+Erro	Consequência
+Subnet sem rota para IGW	EC2 isolada
+IGW ausente	Sem tráfego externo
+SG sem porta 22	SSH bloqueado
+Usar IP errado no SG	Conexão negada
+EC2 em subnet privada	Sem acesso externo
+6. 🎯 Conclusão
+
+Para conectar via SSH em uma EC2, é fundamental configurar corretamente toda a estrutura de rede, e não apenas o Security Group.
+
+Com essa base pronta, avançamos para a preparação da instância para o Kubernetes.
+
+7. 🤖 Adição do Ansible na EC2
+
+O Ansible foi instalado automaticamente usando user-data durante a criação da instância.
+
+8. 🚀 Etapa 6 — Repositório Kubernetes + Instalação do Containerd
+
+(17/11/25)
+
+Esta etapa prepara a EC2 para receber os binários Kubernetes.
+Configuramos o repositório pkgs.k8s.io, instalamos o containerd e aplicamos otimizações recomendadas pela CNCF.
+
+🎯 Objetivos
+
+Registrar o repositório oficial Kubernetes
+
+Importar a chave GPG correta (evitando erros NO_PUBKEY)
+
+Instalar e configurar o containerd
+
+Ajustar parâmetros do sistema
+
+Habilitar o uso de SystemdCgroup
+
+🧩 Implementações realizadas
+✔ 1. Atualização do APT
+
+Garantimos o uso dos repositórios mais recentes.
+
+✔ 2. Instalação de dependências
+
+Incluindo ferramentas para trabalhar com GPG e repositórios HTTPS.
+
+✔ 3. Baixar e registrar chave GPG oficial
+
+A chave foi armazenada em:
+
+/etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+✔ 4. Criar o repositório Kubernetes
+
+Arquivo gerado:
+
+/etc/apt/sources.list.d/kubernetes.list
+
+✔ 5. Instalação do containerd
+
+Container runtime recomendado para clusters Kubernetes modernos.
+
+✔ 6. Configuração do containerd
+
+Foi regenerado o arquivo:
+
+/etc/containerd/config.toml
 
 
+Com ajustes:
 
+SystemdCgroup = true
+
+conformidade com kubelet e CRI
+
+✔ 7. Reinício e habilitação
+
+O containerd foi reiniciado e configurado para iniciar automaticamente.

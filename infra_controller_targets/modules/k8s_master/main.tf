@@ -37,7 +37,7 @@ resource "aws_security_group" "target_sg" {
 # ---------------------------
 # EC2 TARGET
 # ---------------------------
-resource "aws_instance" "target" {
+resource "aws_instance" "k8s_master" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
   subnet_id              = var.subnet_id
@@ -49,13 +49,4 @@ resource "aws_instance" "target" {
     Name = "ansible_target"
     ansible = "managed"  # opcional (bom p/ inventário dinâmico depois)
   }
-}
-
-# OUTPUTS úteis
-output "target_private_ip" {
-  value = aws_instance.target.private_ip
-}
-
-output "target_public_ip" {
-  value = aws_instance.target.public_ip
 }
