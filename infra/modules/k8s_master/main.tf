@@ -46,7 +46,7 @@ resource "aws_instance" "k8s_master" {
   key_name               = data.aws_key_pair.ansible_controller_key_pair.key_name
 
   tags = {
-    Name = "ansible_target"
+    Name = "k8s_master"
     ansible = "managed"  # opcional (bom p/ inventário dinâmico depois)
   }
 }

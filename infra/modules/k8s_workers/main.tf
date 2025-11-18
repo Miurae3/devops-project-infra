@@ -46,7 +46,7 @@ resource "aws_instance" "k8s_worker_1" {
   key_name               = data.aws_key_pair.ansible_controller_key_pair.key_name
 
   tags = {
-    Name = "k8s_workers"
+    Name = "k8s_worker"
     ansible = "managed"  # opcional (bom p/ inventário dinâmico depois)
   }
 }
