@@ -27,8 +27,6 @@
     - name: Executar kubeadm join
       command: "{{ join_command }}"
       register: join_output
-      args:
-        warn: false
 
     - name: Exibir saída do join
       debug:
