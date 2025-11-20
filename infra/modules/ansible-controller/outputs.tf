@@ -19,6 +19,14 @@ output "private_key" {
   sensitive = true
 }
 
-output "vpc_id"        { value = aws_vpc.ansible_controller_vpc.id }
-output "subnet_id"     { value = aws_subnet.ansible_controller_subnet.id }
-output "sg_id"         { value = aws_security_group.ansible_controller_sg.id }
+output "vpc_id" {
+  value = aws_vpc.ansible_controller_vpc.id
+}
+
+output "subnet_id" {
+  value = aws_subnet.ansible_controller_subnet.id
+}
+
+output "controller_sg_id" {
+  value = aws_security_group.ansible_controller_sg.id
+}

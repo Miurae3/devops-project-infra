@@ -1,14 +1,10 @@
 ---
-- name: Instalar Kubernetes e configurar containerd (Ubuntu 24.04)
-  hosts: target
+- name: Preparar WORKER Kubernetes (Ubuntu 24.04)
+  hosts: workernode
   become: yes
 
   pre_tasks:
-
-    ##############################################################
-    # 0) REMOVER REPOSITÓRIOS ANTIGOS QUE PODEM QUEBRAR O APT
-    ##############################################################
-    - name: Remover repositórios antigos do Kubernetes
+    - name: Remover repositórios antigos
       file:
         path: "{{ item }}"
         state: absent
@@ -17,18 +13,16 @@
         - /etc/apt/sources.list.d/kubernetes-archive.list
         - /etc/apt/sources.list.d/kubernetes-stable.list
         - /etc/apt/sources.list.d/k8s.list
-        - /etc/apt/sources.list.d/k8s*
       ignore_errors: yes
 
-    - name: Atualizar cache do apt
+    - name: Atualizar apt
       apt:
         update_cache: yes
-
 
   tasks:
 
     ##############################################################
-    # 1) DESABILITAR SWAP
+    # 1) Desabilitar SWAP
     ##############################################################
     - name: Desabilitar swap
       command: swapoff -a
@@ -40,37 +34,27 @@
         regexp: '(^.*swap.*$)'
         replace: '# \1'
 
-
     ##############################################################
-    # 2) INSTALAR CONTAINERD + DEPENDÊNCIAS
+    # 2) Instalar containerd
     ##############################################################
     - name: Instalar pacotes base
       apt:
         name:
           - curl
-          - gnupg
           - ca-certificates
+          - gnupg
           - lsb-release
-          - apt-transport-https
           - containerd
+          - apt-transport-https
         state: present
         update_cache: yes
 
-    - name: Criar diretório para containerd
-      file:
-        path: /etc/containerd
-        state: directory
+    - name: Criar config do containerd
+      shell: |
+        mkdir -p /etc/containerd
+        containerd config default > /etc/containerd/config.toml
 
-    - name: Gerar configuração padrão do containerd
-      command: containerd config default
-      register: containerd_cfg
-
-    - name: Criar config.toml do containerd
-      copy:
-        dest: /etc/containerd/config.toml
-        content: "{{ containerd_cfg.stdout }}"
-
-    - name: Ajustar SystemdCgroup = true
+    - name: Ajustar SystemdCgroup true
       replace:
         path: /etc/containerd/config.toml
         regexp: 'SystemdCgroup = false'
@@ -82,11 +66,10 @@
         state: restarted
         enabled: yes
 
-
     ##############################################################
-    # 3) MÓDULOS DO KERNEL E SYSCTL PARA KUBERNETES
+    # 3) Kernel
     ##############################################################
-    - name: Habilitar módulos
+    - name: Ativar módulos
       copy:
         dest: /etc/modules-load.d/k8s.conf
         content: |
@@ -98,7 +81,7 @@
         modprobe overlay
         modprobe br_netfilter
 
-    - name: Configurar sysctl para Kubernetes
+    - name: Configurar sysctl
       copy:
         dest: /etc/sysctl.d/k8s.conf
         content: |
@@ -109,49 +92,40 @@
     - name: Aplicar sysctl
       command: sysctl --system
 
-
     ##############################################################
-    # 4) ADICIONAR REPOSITÓRIO OFICIAL DO KUBERNETES (2025)
+    # 4) Repositório Kubernetes
     ##############################################################
-
-    - name: Criar diretório do keyring
+    - name: Criar diretório keyring
       file:
         path: /etc/apt/keyrings
         state: directory
         mode: "0755"
 
-    - name: Baixar chave oficial Release.key
+    - name: Baixar chave Release.key
       get_url:
         url: "https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key"
         dest: "/tmp/k8s-release.key"
 
-    - name: Dearmor da chave
+    - name: Dearmor chave
       command: >
         gpg --batch --yes --dearmor
         -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
         /tmp/k8s-release.key
 
-    - name: Ajustar permissões da chave
-      file:
-        path: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-        mode: "0644"
-
-    - name: Criar repositório Kubernetes
+    - name: Criar repo Kubernetes
       copy:
         dest: /etc/apt/sources.list.d/kubernetes.list
         content: |
           deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /
 
-    - name: Atualizar apt após adicionar repo
+    - name: Atualizar apt
       apt:
         update_cache: yes
 
-
     ##############################################################
-    # 5) INSTALAR kubeadm, kubelet E kubectl
+    # 5) Instalar kubelet, kubeadm, kubectl
     ##############################################################
-
-    - name: Instalar kubelet, kubeadm, kubectl
+    - name: Instalar binários Kubernetes
       apt:
         name:
           - kubelet
@@ -162,14 +136,13 @@
     - name: Travar versões
       command: apt-mark hold kubelet kubeadm kubectl
 
-
     ##############################################################
-    # 6) FINALIZAÇÃO
+    # 6) INSTRUÇÃO FINAL
     ##############################################################
-    - name: Final
+    - name: Instruções finais para o worker
       debug:
         msg: |
-          Kubernetes instalado com sucesso!
-          Agora execute:
-          sudo kubeadm init --pod-network-cidr=192.168.0.0/16
-
+          Worker preparado.
+          No MASTER execute:
+          kubeadm token create --print-join-command
+          Depois execute o join no worker.
